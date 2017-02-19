@@ -136,7 +136,7 @@ Given the nature of the data, it is also possible that a Classification Tree cou
 
 The Random Forest model is presented below, with an explanation of different options and timings. 
 
-With respect to which Randomw Forest model generation technique to use, the main finding here is that the `pml_training_rf_model_1` model has the highest accuracy with the lowest execution time, in comparison to the models detailed in the appendix "Alternative Random Forest Models". 
+With respect to which Random Forest model generation technique to use, the main finding here is that the `pml_training_rf_model_1` model has the highest accuracy with the lowest execution time, in comparison to the models detailed in the appendix "Alternative Random Forest Models". 
 
 The difference in the accurancy, compared to models `pml_training_rf_model_2` and `pml_training_rf_model_3`, from the appendeix, is of the order of 0.1-0.3% better for `pml_training_rf_model_1`. The execution time of `pml_training_rf_model_1` was ~30 secs, whereas that of `pml_training_rf_model_2` was ~1 hour, and `pml_training_rf_model_3` was ~4 min.
 

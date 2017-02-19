@@ -127,7 +127,7 @@ $(document).ready(function () {
 <h1>Introduction</h1>
 <p>This is a prediction study for the <a href="https://www.coursera.org/learn/practical-machine-learning/home/welcome">Coursera Practical Machine Learning course</a>. It uses data from the paper “Qualitative Activity Recognition of Weight Lifting Exercises”, full details of which are in <a href="http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf">Velloso et al</a>.</p>
 <p>See more at: <a href="http://groupware.les.inf.puc-rio.br/har#wle_paper_section#ixzz4YmIrWcyV" class="uri">http://groupware.les.inf.puc-rio.br/har#wle_paper_section#ixzz4YmIrWcyV</a></p>
-<p>That data quantifies how <em>well</em> a group of people carried out the Unilateral Dumbbell Biceps Curl exercise, measured with accelerometers attached to different parts of their bodies. including their arms, hips and legs.</p>
+<p>That data quantifies how <em>well</em> a group of people carried out the Unilateral Dumbbell Biceps Curl exercise, measured with accelerometers attached to different parts of their bodies, including their arms, hips and legs.</p>
 <p>The data is structured such that, for each participant, there are 10 sets of readings from the accelerometers associated with different ways of doing the exercise, identified by the “classe” variable, summarised below:</p>
 <ul>
 <li>A, exactly according to the specification</li>
@@ -168,7 +168,7 @@ pml_testing &lt;- read.csv(pml_testing_file, na.strings=c(&quot;NA&quot;,&quot;#
 partition_index &lt;- createDataPartition(y=pml_training_original$classe, p=0.6, list = FALSE)
 pml_training &lt;- pml_training_original[partition_index,]
 pml_validation &lt;-  pml_training_original[-partition_index,]</code></pre>
-<p>The dimensions of the resulting data sets are examine below.</p>
+<p>The dimensions of the resulting data sets are shown below.</p>
 <pre class="r"><code>dim(pml_training)</code></pre>
 <pre><code>## [1] 11776   160</code></pre>
 <pre class="r"><code>dim(pml_validation)</code></pre>
@@ -178,7 +178,7 @@ pml_validation &lt;-  pml_training_original[-partition_index,]</code></pre>
 </div>
 <div id="cleaning-data" class="section level1">
 <h1>Cleaning Data</h1>
-<p>The following characteristics of the data, revealed by visual examination, provide scope for clean up:</p>
+<p>The following characteristics of the data, revealed by visual examination, can be cleaned up:</p>
 <ul>
 <li>The first seven columns, before the “roll_belt” column, appear to be meta data, time stamps, user name or similar, that do not contribute to predictions, so we can remove those.</li>
 <li>There are a significant number of NAs in the data.</li>
@@ -212,13 +212,13 @@ dim(pml_training)</code></pre>
 <div id="random-forest-modelling" class="section level2">
 <h2>Random Forest Modelling</h2>
 <p>The Random Forest model is presented below, with an explanation of different options and timings.</p>
-<p>With respect to which Randomw Forest model generation technique to use, the main finding here is that the <code>pml_training_rf_model_1</code> model has the highest accuracy with the lowest execution time, in comparison to the models detailed in the appendix “Alternative Random Forest Models”.</p>
+<p>With respect to which Random Forest model generation technique to use, the main finding here is that the <code>pml_training_rf_model_1</code> model has the highest accuracy with the lowest execution time, in comparison to the models detailed in the appendix “Alternative Random Forest Models”.</p>
 <p>The difference in the accurancy, compared to models <code>pml_training_rf_model_2</code> and <code>pml_training_rf_model_3</code>, from the appendeix, is of the order of 0.1-0.3% better for <code>pml_training_rf_model_1</code>. The execution time of <code>pml_training_rf_model_1</code> was ~30 secs, whereas that of <code>pml_training_rf_model_2</code> was ~1 hour, and <code>pml_training_rf_model_3</code> was ~4 min.</p>
 <pre class="r"><code>start_time &lt;- Sys.time()
 pml_training_rf_model_1 &lt;- randomForest(classe ~ ., data=pml_training)
 end_time &lt;- Sys.time()
 print(paste(&quot;The model pml_training_rf_model_1 took&quot;, (end_time-start_time), &quot;seconds&quot;))</code></pre>
-<pre><code>## [1] &quot;The model pml_training_rf_model_1 took 26.148362159729 seconds&quot;</code></pre>
+<pre><code>## [1] &quot;The model pml_training_rf_model_1 took 26.6382141113281 seconds&quot;</code></pre>
 <pre class="r"><code>pml_training_rf_predictions_1 &lt;- predict(pml_training_rf_model_1, pml_validation)
 pml_training_rf_confusion_matrix_1 &lt;- confusionMatrix(pml_validation$classe, pml_training_rf_predictions_1)
 pml_training_rf_confusion_matrix_1_accuracy &lt;- pml_training_rf_confusion_matrix_1$overall[1]
@@ -231,7 +231,7 @@ pml_training_rf_confusion_matrix_1_ooer &lt;- 1-pml_training_rf_confusion_matrix
 pml_training_ctree_model_1 &lt;- ctree(classe ~ ., data=pml_training)
 end_time &lt;- Sys.time()
 print(paste(&quot;The model pml_training_ctree_model_1 took&quot;, (end_time-start_time), &quot;seconds&quot;))</code></pre>
-<pre><code>## [1] &quot;The model pml_training_ctree_model_1 took 4.41473603248596 seconds&quot;</code></pre>
+<pre><code>## [1] &quot;The model pml_training_ctree_model_1 took 4.48452591896057 seconds&quot;</code></pre>
 <pre class="r"><code>pml_training_ctree_predictions_1 &lt;- predict(pml_training_ctree_model_1, pml_validation)
 pml_training_ctree_confusion_matrix_1 &lt;- confusionMatrix(pml_validation$classe, pml_training_ctree_predictions_1)
 pml_training_ctree_confusion_matrix_1_accuracy &lt;- pml_training_ctree_confusion_matrix_1$overall[1]
@@ -245,6 +245,7 @@ pml_training_ctree_confusion_matrix_1_ooer &lt;- 1-pml_training_ctree_confusion_
 </div>
 <div id="predictions-on-test-data" class="section level1">
 <h1>Predictions on Test Data</h1>
+<p>Applying the <code>pml_training_rf_model_1</code> model to the <code>pml_testing</code> data set yields the following result:</p>
 <pre class="r"><code>pml_test_prediction &lt;- predict(pml_training_rf_model_1, pml_testing)
 pml_test_prediction</code></pre>
 <pre><code>##  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
