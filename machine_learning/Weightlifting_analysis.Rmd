@@ -1,0 +1,210 @@
+---
+title: "Prediction Assignment Writeup - Weightlifting"
+output: html_document
+author: Nathan Sowatskey
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+This is a prediction study for the [Coursera Practical Machine Learning course](https://www.coursera.org/learn/practical-machine-learning/home/welcome). It uses data from the paper "Qualitative Activity Recognition of Weight Lifting Exercises", full details of which are in [Velloso et al](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf). 
+
+See more at: http://groupware.les.inf.puc-rio.br/har#wle_paper_section#ixzz4YmIrWcyV
+
+That data quantifies how *well* a group of people carried out the Unilateral Dumbbell Biceps Curl exercise, measured with accelerometers attached to different parts of their bodies, including their arms, hips and legs. 
+
+The data is structured such that, for each participant, there are 10 sets of readings from the accelerometers associated with different ways of doing the exercise, identified by the "classe" variable, summarised below:
+
+ - A, exactly according to the specification
+ - B, throwing the elbows to the front 
+ - C, lifting the dumbbell only halfway 
+ - D, lowering the dumbbell only halfway
+ - E, throwing the hips to the front
+
+##Goals
+
+The goal of this project is to predict the manner in which they did the exercise. The manner in which they did the exercise is identified by the "classe" variable in the training set, described above.
+
+This report covers the following:
+ - Data loading, analysis and cleanup
+ - Model based prediction and selection
+ - Using the selected prediction model to predict 20 different test cases
+ 
+#Reproducibility
+The following packages and libraries were used in this study, with the seed set as shown below.
+
+```{r Repropducibility, echo=FALSE}
+#install.packages("caret", quiet = TRUE)
+library("caret", quietly = TRUE, verbose = FALSE, warn.conflicts = FALSE)
+print(c(packageDescription("caret")$Package, packageDescription("caret")$Version))
+
+#install.packages("randomForest")
+library("randomForest", quietly = TRUE, verbose = FALSE, warn.conflicts = FALSE)
+print(c(packageDescription("randomForest")$Package, packageDescription("randomForest")$Version))
+
+#install.packages("party")
+library("party", quietly = TRUE, verbose = FALSE, warn.conflicts = FALSE)
+print(c(packageDescription("party")$Package, packageDescription("party")$Version))
+```
+```{r set_seed}
+set.seed(12345)
+```
+
+#Loading, Partitioning and Examining Data
+The data is supplied in two sets, one for training, and one for final testing, which shall be used at the end to evaluate the final model selection. In the code below we
+load the data and partition the training data set into training and model validation data. The data in the "pml-testing.csv" file is reserved for final testing.
+
+```{r loading_data_1}
+pml_training_file <- "pml-training.csv"
+pml_testing_file <- "pml-testing.csv"
+```
+```{r loading_data_2, echo=FALSE}
+#Save file locally for cache purposes
+if (!file.exists(pml_training_file)) {
+  pml_training_url <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+  download.file(pml_training_url, pml_training_file)
+}
+
+pml_testing_file <- "pml-testing.csv"
+if (!file.exists(pml_testing_file)) {
+  pml_testing_url <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+  download.file(pml_testing_url, pml_testing_file)
+}
+```
+```{r loading_data_3}
+pml_training_original <- read.csv(pml_training_file, na.strings=c("NA","#DIV/0!",""))
+pml_testing <- read.csv(pml_testing_file, na.strings=c("NA","#DIV/0!",""))
+
+partition_index <- createDataPartition(y=pml_training_original$classe, p=0.6, list = FALSE)
+pml_training <- pml_training_original[partition_index,]
+pml_validation <-  pml_training_original[-partition_index,]
+```
+
+The dimensions of the resulting data sets are shown below.
+
+```{r examine_data}
+dim(pml_training)
+dim(pml_validation)
+dim(pml_testing)
+```
+
+#Cleaning Data
+
+The following characteristics of the data, revealed by visual examination, can be cleaned up:
+
+ - The first seven columns, before the "roll_belt" column, appear to be meta data, time stamps, user name or similar, that do not contribute to predictions, so we can remove those.
+ - There are a significant number of NAs in the data.
+
+```{r remove_metadata}
+#Remove metadata columns
+pml_training <- pml_training[,-c(1:7)]
+```
+```{r remove_NAs}
+#Remove columns where the number of NA results is above a given level
+#Set a tunabale NA level so that it is easier to experiment
+na_level = .75
+nrow_pml_training = nrow(pml_training)
+na_col_nums <- numeric()
+for(i in 1:length(pml_training)) {
+  sum_na = sum(is.na(pml_training[, i]))
+  if(sum_na/nrow_pml_training >= na_level ) {
+    na_col_nums <- c(na_col_nums, i)           
+  }
+}
+pml_training <- pml_training[-na_col_nums]
+```
+
+```{r apply_cleanup}
+#Set the columns in the validation data to be the same as those in the training data
+pml_training_colnames <- colnames(pml_training)
+pml_validation <- pml_validation[, pml_training_colnames]
+dim(pml_training)
+dim(pml_validation)
+```
+
+#Modelling
+
+In [Velloso et al] it is noted that their use of a Random Forest provided the highest accuracy. Accordingly, we shall apply a Random Forest model first. 
+
+Given the nature of the data, it is also possible that a Classification Tree could be used for predictions, so that is also examined below.
+
+##Random Forest Modelling
+
+The Random Forest model is presented below, with an explanation of different options and timings. 
+
+With respect to which Randomw Forest model generation technique to use, the main finding here is that the `pml_training_rf_model_1` model has the highest accuracy with the lowest execution time, in comparison to the models detailed in the appendix "Alternative Random Forest Models". 
+
+The difference in the accurancy, compared to models `pml_training_rf_model_2` and `pml_training_rf_model_3`, from the appendeix, is of the order of 0.1-0.3% better for `pml_training_rf_model_1`. The execution time of `pml_training_rf_model_1` was ~30 secs, whereas that of `pml_training_rf_model_2` was ~1 hour, and `pml_training_rf_model_3` was ~4 min.
+
+```{r rf_model_1}
+start_time <- Sys.time()
+pml_training_rf_model_1 <- randomForest(classe ~ ., data=pml_training)
+end_time <- Sys.time()
+print(paste("The model pml_training_rf_model_1 took", (end_time-start_time), "seconds"))
+pml_training_rf_predictions_1 <- predict(pml_training_rf_model_1, pml_validation)
+pml_training_rf_confusion_matrix_1 <- confusionMatrix(pml_validation$classe, pml_training_rf_predictions_1)
+pml_training_rf_confusion_matrix_1_accuracy <- pml_training_rf_confusion_matrix_1$overall[1]
+pml_training_rf_confusion_matrix_1_ooer <- 1-pml_training_rf_confusion_matrix_1_accuracy
+```
+
+For the model `pml_training_rf_model_1` the accuracy is `r pml_training_rf_confusion_matrix_1_accuracy` and the out of bounds error rate is `r pml_training_rf_confusion_matrix_1_ooer`.
+
+##Classification Trees
+
+```{r ctree_model_1}
+start_time <- Sys.time()
+pml_training_ctree_model_1 <- ctree(classe ~ ., data=pml_training)
+end_time <- Sys.time()
+print(paste("The model pml_training_ctree_model_1 took", (end_time-start_time), "seconds"))
+pml_training_ctree_predictions_1 <- predict(pml_training_ctree_model_1, pml_validation)
+pml_training_ctree_confusion_matrix_1 <- confusionMatrix(pml_validation$classe, pml_training_ctree_predictions_1)
+pml_training_ctree_confusion_matrix_1_accuracy <- pml_training_ctree_confusion_matrix_1$overall[1]
+pml_training_ctree_confusion_matrix_1_ooer <- 1-pml_training_ctree_confusion_matrix_1_accuracy
+```
+
+For the model `pml_training_ctree_model_1` the accuracy is `r pml_training_ctree_confusion_matrix_1_accuracy` and the out of bounds error rate is `r pml_training_ctree_confusion_matrix_1_ooer`.
+
+##Chosen Model
+
+Of the two models considered above, it is the Random Forest model `pml_training_rf_model_1` that yields the greatest accurancy, so that is the model we shall use for further predictions.
+
+#Predictions on Test Data
+
+Applying the `pml_training_rf_model_1` model to the `pml_testing` data set yields the following result:
+
+```{r test_prediction}
+pml_test_prediction <- predict(pml_training_rf_model_1, pml_testing)
+pml_test_prediction
+```
+
+#Appendices
+
+##Alternative Random Forest Models
+
+These Random Forest models were also tried, but were slower in calculation and less accurate than the selected model.
+
+```{r rf_model_2}
+#~1 hour
+#pml_training_rf_model_2 <- train(classe ~ . , data=pml_training, method="rf")
+#pml_training_predictions_2 <- predict(pml_training_rf_model_2, pml_validation)
+#confusionMatrix(pml_validation$classe, pml_training_predictions_2)
+```
+```{r rf_model_3}
+#~4 min
+#rf_tr_control <- trainControl(method="cv", 5)
+#pml_training_rf_model_3 <- train(classe ~ ., data=pml_training, method="rf", trControl=rf_tr_control, ntree=250)
+#pml_training_predictions_3 <- predict(pml_training_rf_model_3, pml_validation)
+#confusionMatrix(pml_validation$classe, pml_training_predictions_3)
+```
+
+
+
+#References
+
+
+ - [Velloso et al] [Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.](http://groupware.les.inf.puc-rio.br/public/papers/2013.Velloso.QAR-WLE.pdf)
+
